@@ -41,6 +41,7 @@ extern void yyerror(const char *str);
 
 extern void bpf_asm_compile(FILE *fp, bool cstyle);
 static void bpf_set_curr_instr(uint16_t op, uint8_t jt, uint8_t jf, uint32_t k);
+static void bpf_set_curr_instr_lit(uint16_t op, uint8_t jt, uint8_t jf, char* k);
 static void bpf_set_curr_label(char *label);
 static void bpf_set_jmp_label(char *label, enum jmp_type type);
 
@@ -58,7 +59,7 @@ static void bpf_set_jmp_label(char *label, enum jmp_type type);
 
 %token K_PKT_LEN
 
-%token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%'
+%token ':' ',' '[' ']' '(' ')' 'x' 'a' '+' 'M' '*' '&' '#' '%' '$'
 
 %token extension number label
 
@@ -153,6 +154,8 @@ ldi
 ld
 	: OP_LD '#' number {
 		bpf_set_curr_instr(BPF_LD | BPF_IMM, 0, 0, $3); }
+	| OP_LD '$' label {
+		bpf_set_curr_instr_lit(BPF_LD | BPF_IMM, 0, 0, $3); }
 	| OP_LD K_PKT_LEN {
 		bpf_set_curr_instr(BPF_LD | BPF_W | BPF_LEN, 0, 0, 0); }
 	| OP_LD extension {
@@ -217,6 +220,10 @@ jeq
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_jmp_label($7, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
+	| OP_JEQ '$' label ',' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_jmp_label($7, JFL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
 	| OP_JEQ 'x' ',' label ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_jmp_label($6, JFL);
@@ -228,6 +235,9 @@ jeq
 	| OP_JEQ '#' number ',' label {
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
+	| OP_JEQ '$' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
 	| OP_JEQ 'x' ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
@@ -240,6 +250,8 @@ jneq
 	: OP_JNEQ '#' number ',' label {
 		bpf_set_jmp_label($5, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
+	| OP_JNEQ '$' label ',' label {
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JEQ | BPF_K, 0, 0, $3); }
 	| OP_JNEQ 'x' ',' label {
 		bpf_set_jmp_label($4, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JEQ | BPF_X, 0, 0, 0); }
@@ -252,6 +264,9 @@ jlt
 	: OP_JLT '#' number ',' label {
 		bpf_set_jmp_label($5, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
+	| OP_JLT '$' label ',' label {
+		bpf_set_jmp_label($5, JFL);
+                bpf_set_curr_instr_lit(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
 	| OP_JLT 'x' ',' label {
 		bpf_set_jmp_label($4, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
@@ -264,6 +279,9 @@ jle
 	: OP_JLE '#' number ',' label {
 		bpf_set_jmp_label($5, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
+	| OP_JLE '$' label ',' label {
+		bpf_set_jmp_label($5, JFL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
 	| OP_JLE 'x' ',' label {
 		bpf_set_jmp_label($4, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
@@ -277,6 +295,10 @@ jgt
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_jmp_label($7, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
+	| OP_JGT '$' label ',' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_jmp_label($7, JFL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
 	| OP_JGT 'x' ',' label ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_jmp_label($6, JFL);
@@ -288,6 +310,9 @@ jgt
 	| OP_JGT '#' number ',' label {
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
+	| OP_JGT '$' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JGT | BPF_K, 0, 0, $3); }
 	| OP_JGT 'x' ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGT | BPF_X, 0, 0, 0); }
@@ -301,6 +326,10 @@ jge
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_jmp_label($7, JFL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
+        | OP_JGE '$' label ',' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_jmp_label($7, JFL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
 	| OP_JGE 'x' ',' label ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_jmp_label($6, JFL);
@@ -312,6 +341,9 @@ jge
 	| OP_JGE '#' number ',' label {
 		bpf_set_jmp_label($5, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
+        | OP_JGE '$' label ',' label {
+		bpf_set_jmp_label($5, JTL);
+		bpf_set_curr_instr_lit(BPF_JMP | BPF_JGE | BPF_K, 0, 0, $3); }
 	| OP_JGE 'x' ',' label {
 		bpf_set_jmp_label($4, JTL);
 		bpf_set_curr_instr(BPF_JMP | BPF_JGE | BPF_X, 0, 0, 0); }
@@ -397,6 +429,8 @@ neg
 and
 	: OP_AND '#' number {
 		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_K, 0, 0, $3); }
+	| OP_AND '$' label {
+		bpf_set_curr_instr_lit(BPF_ALU | BPF_AND | BPF_K, 0, 0, $3); }
 	| OP_AND 'x' {
 		bpf_set_curr_instr(BPF_ALU | BPF_AND | BPF_X, 0, 0, 0); }
 	| OP_AND '%' 'x' {
@@ -466,7 +500,7 @@ txa
 
 static int curr_instr = 0;
 static struct sock_filter out[BPF_MAXINSNS];
-static char **labels, **labels_jt, **labels_jf, **labels_k;
+static char **labels, **labels_jt, **labels_jf, **labels_k, **lits_k;
 
 static void bpf_assert_max(void)
 {
@@ -485,6 +519,13 @@ static void bpf_set_curr_instr(uint16_t code, uint8_t jt, uint8_t jf,
 	out[curr_instr].jf = jf;
 	out[curr_instr].k = k;
 	curr_instr++;
+}
+
+static void bpf_set_curr_instr_lit(uint16_t code, uint8_t jt, uint8_t jf,
+                                   char* k)
+{
+        lits_k[curr_instr] = k;
+        bpf_set_curr_instr(code, jt, jf, 0);
 }
 
 static void bpf_set_curr_label(char *label)
@@ -580,9 +621,14 @@ static void bpf_pretty_print_c(void)
 {
 	int i;
 
-	for (i = 0; i < curr_instr; i++)
+	for (i = 0; i < curr_instr; i++) {
+            if (lits_k[i])
+		printf("{ %#04x, %2u, %2u, %s },\n", out[i].code,
+		       out[i].jt, out[i].jf, lits_k[i]);
+            else
 		printf("{ %#04x, %2u, %2u, %#010x },\n", out[i].code,
 		       out[i].jt, out[i].jf, out[i].k);
+        }
 }
 
 static void bpf_pretty_print(void)
@@ -590,9 +636,14 @@ static void bpf_pretty_print(void)
 	int i;
 
 	printf("%u,", curr_instr);
-	for (i = 0; i < curr_instr; i++)
+	for (i = 0; i < curr_instr; i++) {
+            if (lits_k[i])
+		printf("%u %u %u %u,", out[i].code,
+		       out[i].jt, out[i].jf, lits_k[i]);
+            else
 		printf("%u %u %u %u,", out[i].code,
 		       out[i].jt, out[i].jf, out[i].k);
+        }
 	printf("\n");
 }
 
@@ -608,6 +659,8 @@ static void bpf_init(void)
 	assert(labels_jf);
 	labels_k = calloc(BPF_MAXINSNS, sizeof(*labels_k));
 	assert(labels_k);
+	lits_k = calloc(BPF_MAXINSNS, sizeof(*lits_k));
+	assert(lits_k);
 }
 
 static void bpf_destroy_labels(void)
@@ -618,6 +671,7 @@ static void bpf_destroy_labels(void)
 		free(labels_jf[i]);
 		free(labels_jt[i]);
 		free(labels_k[i]);
+		free(lits_k[i]);
 		free(labels[i]);
 	}
 }
@@ -628,6 +682,7 @@ static void bpf_destroy(void)
 	free(labels_jt);
 	free(labels_jf);
 	free(labels_k);
+	free(lits_k);
 	free(labels);
 }
 
@@ -638,12 +693,13 @@ void bpf_asm_compile(FILE *fp, bool cstyle)
 	bpf_init();
 	bpf_stage_1_insert_insns();
 	bpf_stage_2_reduce_labels();
-	bpf_destroy();
 
 	if (cstyle)
 		bpf_pretty_print_c();
 	else
 		bpf_pretty_print();
+
+	bpf_destroy();
 
 	if (fp != stdin)
 		fclose(yyin);

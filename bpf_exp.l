@@ -162,6 +162,7 @@ extern void yyerror(const char *str);
 "M"		{ return 'M'; }
 "*"		{ return '*'; }
 "&"		{ return '&'; }
+"$"             { return '$'; }
 
 ([0][x][a-fA-F0-9]+) {
 			yylval.number = strtoul(yytext, NULL, 16);
@@ -178,6 +179,10 @@ extern void yyerror(const char *str);
 ([0][0-7]+)	{
 			yylval.number = strtol(yytext + 1, NULL, 8);
 			return number;
+		}
+[a-zA-Z_][a-zA-Z0-9_]+\([0-9]*\) {
+			yylval.label = strdup(yytext);
+			return label;
 		}
 [a-zA-Z_][a-zA-Z0-9_]+ {
 			yylval.label = strdup(yytext);
